@@ -1,14 +1,14 @@
-import { useStateContext } from "./StateContainer";
+import { useTodoInputContext } from "./StateContainer";
 import TodoInput from "./TodoInput";
 
 const TodoInputContainer = () => {
-  const { state, actions } = useStateContext();
+  const { textAdd, changeAddText, addTodo } = useTodoInputContext();
 
   return (
     <TodoInput
-      text={state.textAdd}
-      handleChange={actions.changeAddText}
-      handleSubmit={actions.addTodo}
+      text={textAdd}
+      handleChange={changeAddText}
+      handleSubmit={addTodo}
     />
   );
 };

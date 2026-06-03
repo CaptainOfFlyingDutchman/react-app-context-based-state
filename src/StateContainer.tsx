@@ -19,20 +19,22 @@ interface IState {
   textAdd: string;
 }
 
-// Define the shape of the context. This is what gets consumed by components
-// who wish to get access to the state. You can create selectors and actions
-// to provide encapsulated getters and setters.
-interface IContext {
+// Define focused context shapes so unrelated state updates do not notify
+// consumers that only care about another slice of the todo state.
+interface ITodoInputContext {
+  textAdd: string;
+  changeAddText: (text: string) => void;
+  addTodo: () => void;
+}
+
+interface ITodoListContext {
+  todosWithCompleted: ITodoWithCompleted[];
+  deleteTodo: (id: number) => void;
+  toggleCompleted: (id: number) => void;
+}
+
+interface IStateDebugContext {
   state: IState;
-  selectors: {
-    getTodosWithCompleted: () => ITodoWithCompleted[];
-  };
-  actions: {
-    changeAddText: (text: string) => void;
-    addTodo: () => void;
-    deleteTodo: (id: number) => void;
-    toggleCompleted: (id: number) => void;
-  };
 }
 
 const initialTodos: ITodo[] = [
@@ -57,12 +59,18 @@ const initialState: IState = {
   textAdd: ""
 };
 
-const StateContext = createContext<IContext | undefined>(undefined);
+const TodoInputContext = createContext<ITodoInputContext | undefined>(
+  undefined
+);
+const TodoListContext = createContext<ITodoListContext | undefined>(undefined);
+const StateDebugContext = createContext<IStateDebugContext | undefined>(
+  undefined
+);
 
 const StateContainer = ({ children }: PropsWithChildren) => {
   const [state, setState] = useState<IState>(initialState);
 
-  const getTodosWithCompleted = useCallback(() => {
+  const todosWithCompleted = useMemo(() => {
     // This selector merges the todos array with the 'completed' map.
     return state.todos.map(todo => ({
       ...todo,
@@ -114,43 +122,69 @@ const StateContainer = ({ children }: PropsWithChildren) => {
     setState(prevState => ({ ...prevState, textAdd: text }));
   }, []);
 
-  // Build the context object with the container state and all the
-  // implementations of the selectors and actions.
-  const context = useMemo<IContext>(
+  const todoInputContext = useMemo<ITodoInputContext>(
     () => ({
-      state,
-      selectors: {
-        getTodosWithCompleted
-      },
-      actions: {
-        deleteTodo,
-        toggleCompleted,
-        addTodo,
-        changeAddText
-      }
-    }),
-    [
-      addTodo,
+      textAdd: state.textAdd,
       changeAddText,
-      deleteTodo,
-      getTodosWithCompleted,
-      state,
-      toggleCompleted
-    ]
+      addTodo
+    }),
+    [addTodo, changeAddText, state.textAdd]
   );
 
-  // Pass the context object as a value of the Context Provider. Then
-  // render any children below it.
+  const todoListContext = useMemo<ITodoListContext>(
+    () => ({
+      todosWithCompleted,
+      deleteTodo,
+      toggleCompleted
+    }),
+    [deleteTodo, todosWithCompleted, toggleCompleted]
+  );
+
+  const stateDebugContext = useMemo<IStateDebugContext>(
+    () => ({
+      state
+    }),
+    [state]
+  );
+
+  // Pass focused context values so each consumer subscribes to the smallest
+  // slice it needs.
   return (
-    <StateContext.Provider value={context}>{children}</StateContext.Provider>
+    <TodoInputContext.Provider value={todoInputContext}>
+      <TodoListContext.Provider value={todoListContext}>
+        <StateDebugContext.Provider value={stateDebugContext}>
+          {children}
+        </StateDebugContext.Provider>
+      </TodoListContext.Provider>
+    </TodoInputContext.Provider>
   );
 };
 
-export const useStateContext = () => {
-  const context = useContext(StateContext);
+export const useTodoInputContext = () => {
+  const context = useContext(TodoInputContext);
 
   if (!context) {
-    throw new Error("useStateContext must be used inside StateContainer");
+    throw new Error("useTodoInputContext must be used inside StateContainer");
+  }
+
+  return context;
+};
+
+export const useTodoListContext = () => {
+  const context = useContext(TodoListContext);
+
+  if (!context) {
+    throw new Error("useTodoListContext must be used inside StateContainer");
+  }
+
+  return context;
+};
+
+export const useStateDebugContext = () => {
+  const context = useContext(StateDebugContext);
+
+  if (!context) {
+    throw new Error("useStateDebugContext must be used inside StateContainer");
   }
 
   return context;

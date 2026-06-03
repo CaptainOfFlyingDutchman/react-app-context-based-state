@@ -1,14 +1,15 @@
-import { useStateContext } from "./StateContainer";
+import { useTodoListContext } from "./StateContainer";
 import TodoList from "./TodoList";
 
 const TodoListContainer = () => {
-  const { selectors, actions } = useStateContext();
+  const { todosWithCompleted, toggleCompleted, deleteTodo } =
+    useTodoListContext();
 
   return (
     <TodoList
-      todos={selectors.getTodosWithCompleted()}
-      handleTick={actions.toggleCompleted}
-      handleDelete={actions.deleteTodo}
+      todos={todosWithCompleted}
+      handleTick={toggleCompleted}
+      handleDelete={deleteTodo}
     />
   );
 };
