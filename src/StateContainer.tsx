@@ -6,6 +6,7 @@ import {
   useMemo,
   useState
 } from "react";
+import { produce } from "immer";
 
 import { ITodo, ITodoWithCompleted } from "./types";
 
@@ -79,47 +80,44 @@ const StateContainer = ({ children }: PropsWithChildren) => {
   }, [state.completed, state.todos]);
 
   const toggleCompleted = useCallback((id: number) => {
-    setState(prevState => ({
-      ...prevState,
-      completed: {
-        ...prevState.completed,
-        [id]: !prevState.completed[id] || false
-      }
-    }));
+    setState(prevState =>
+      produce(prevState, draft => {
+        draft.completed[id] = !draft.completed[id] || false;
+      })
+    );
   }, []);
 
   const deleteTodo = useCallback((id: number) => {
-    setState(prevState => {
-      const completed = { ...prevState.completed };
-      delete completed[id];
-
-      return {
-        ...prevState,
-        todos: prevState.todos.filter(todo => todo.id !== id),
-        completed
-      };
-    });
+    setState(prevState =>
+      produce(prevState, draft => {
+        draft.todos = draft.todos.filter(todo => todo.id !== id);
+        delete draft.completed[id];
+      })
+    );
   }, []);
 
   const addTodo = useCallback(() => {
     // Generate a new Todo using nextId (and increment it) and reset
     // textAdd (the text in the input field)
-    setState(prevState => {
-      const todo: ITodo = {
-        id: nextId++,
-        text: prevState.textAdd
-      };
+    setState(prevState =>
+      produce(prevState, draft => {
+        const todo: ITodo = {
+          id: nextId++,
+          text: draft.textAdd
+        };
 
-      return {
-        ...prevState,
-        todos: [todo, ...prevState.todos],
-        textAdd: ""
-      };
-    });
+        draft.todos.unshift(todo);
+        draft.textAdd = "";
+      })
+    );
   }, []);
 
   const changeAddText = useCallback((text: string) => {
-    setState(prevState => ({ ...prevState, textAdd: text }));
+    setState(prevState =>
+      produce(prevState, draft => {
+        draft.textAdd = text;
+      })
+    );
   }, []);
 
   const todoInputContext = useMemo<ITodoInputContext>(
