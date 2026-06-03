@@ -19,20 +19,20 @@ interface IState {
   textAdd: string;
 }
 
-// Define the shape of the context. This is what gets consumed by components
-// who wish to get access to the state. You can create selectors and actions
-// to provide encapsulated getters and setters.
-interface IContext {
+// Define the shapes of the contexts. State and actions are separated so
+// consumers that only need stable actions do not subscribe to state changes.
+interface IStateContext {
   state: IState;
   selectors: {
     getTodosWithCompleted: () => ITodoWithCompleted[];
   };
-  actions: {
-    changeAddText: (text: string) => void;
-    addTodo: () => void;
-    deleteTodo: (id: number) => void;
-    toggleCompleted: (id: number) => void;
-  };
+}
+
+interface IActionsContext {
+  changeAddText: (text: string) => void;
+  addTodo: () => void;
+  deleteTodo: (id: number) => void;
+  toggleCompleted: (id: number) => void;
 }
 
 const initialTodos: ITodo[] = [
@@ -57,7 +57,8 @@ const initialState: IState = {
   textAdd: ""
 };
 
-const StateContext = createContext<IContext | undefined>(undefined);
+const StateContext = createContext<IStateContext | undefined>(undefined);
+const ActionsContext = createContext<IActionsContext | undefined>(undefined);
 
 const StateContainer = ({ children }: PropsWithChildren) => {
   const [state, setState] = useState<IState>(initialState);
@@ -114,35 +115,36 @@ const StateContainer = ({ children }: PropsWithChildren) => {
     setState(prevState => ({ ...prevState, textAdd: text }));
   }, []);
 
-  // Build the context object with the container state and all the
-  // implementations of the selectors and actions.
-  const context = useMemo<IContext>(
+  // Build the context objects separately so action-only consumers can avoid
+  // re-rendering when state changes.
+  const stateContext = useMemo<IStateContext>(
     () => ({
       state,
       selectors: {
         getTodosWithCompleted
-      },
-      actions: {
-        deleteTodo,
-        toggleCompleted,
-        addTodo,
-        changeAddText
       }
     }),
-    [
-      addTodo,
-      changeAddText,
-      deleteTodo,
-      getTodosWithCompleted,
-      state,
-      toggleCompleted
-    ]
+    [getTodosWithCompleted, state]
   );
 
-  // Pass the context object as a value of the Context Provider. Then
-  // render any children below it.
+  const actionsContext = useMemo<IActionsContext>(
+    () => ({
+      deleteTodo,
+      toggleCompleted,
+      addTodo,
+      changeAddText
+    }),
+    [addTodo, changeAddText, deleteTodo, toggleCompleted]
+  );
+
+  // Pass the context objects as values of the Context Providers. Then
+  // render any children below them.
   return (
-    <StateContext.Provider value={context}>{children}</StateContext.Provider>
+    <ActionsContext.Provider value={actionsContext}>
+      <StateContext.Provider value={stateContext}>
+        {children}
+      </StateContext.Provider>
+    </ActionsContext.Provider>
   );
 };
 
@@ -151,6 +153,16 @@ export const useStateContext = () => {
 
   if (!context) {
     throw new Error("useStateContext must be used inside StateContainer");
+  }
+
+  return context;
+};
+
+export const useActionsContext = () => {
+  const context = useContext(ActionsContext);
+
+  if (!context) {
+    throw new Error("useActionsContext must be used inside StateContainer");
   }
 
   return context;
